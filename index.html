@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Digital Deterrence Simulator — Software Over Steel</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --ink:#111827; --muted:#6b7280;
+      --accent:#2563eb; --warn:#f59e0b; --bad:#dc2626; --good:#10b981;
+      --line:#e5e7eb;
+    }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);}
+    header{background:#0f172a;color:#fff;padding:18px 20px;}
+    header h1{margin:0;font-size:18px;font-weight:650;}
+    header p{margin:6px 0 0;color:#cbd5e1;font-size:13px;max-width:980px;line-height:1.35;}
+    main{max-width:980px;margin:16px auto;padding:0 14px 24px;}
+    .row{display:grid;grid-template-columns:1.2fr 0.8fr;gap:12px;}
+    @media (max-width: 900px){ .row{grid-template-columns:1fr;} }
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);padding:14px;}
+    .title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px;}
+    .title h2{margin:0;font-size:15px;}
+    .title .meta{font-size:12px;color:var(--muted);}
+    .kpiGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;}
+    .kpi{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfbfd;}
+    .kpi .k{font-size:12px;color:var(--muted);margin-bottom:6px;}
+    .kpi .v{display:flex;align-items:center;gap:10px;}
+    .bar{flex:1;height:10px;background:#e5e7eb;border-radius:999px;position:relative;overflow:hidden;}
+    .fill{position:absolute;left:0;top:0;height:100%;width:0%;border-radius:999px;}
+    .n{min-width:40px;text-align:right;font-variant-numeric:tabular-nums;font-weight:650;}
+    .eventBox{border-left:4px solid var(--accent);background:#f8fafc;padding:10px 10px;border-radius:10px;border:1px solid var(--line);line-height:1.45;}
+    .eventBox p{margin:0;font-size:13px;}
+    .eventBox .tag{display:inline-block;font-size:11px;font-weight:650;padding:2px 8px;border-radius:999px;background:#e0e7ff;color:#1e40af;margin-bottom:8px;}
+    .controls{margin-top:10px;}
+    .budget{display:flex;align-items:center;justify-content:space-between;margin:8px 0 6px;}
+    .budget .left{font-size:13px;color:var(--muted);}
+    .budget .right{font-size:13px;font-weight:650;}
+    .sliderRow{border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;}
+    .sliderTop{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;}
+    .sliderTop .name{font-size:13px;font-weight:650;}
+    .sliderTop .desc{font-size:12px;color:var(--muted);flex:1;text-align:right;}
+    input[type="range"]{width:100%;}
+    .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap;}
+    button{border:0;border-radius:10px;padding:10px 12px;font-weight:650;cursor:pointer;font-size:13px;}
+    .btnPrimary{background:var(--accent);color:#fff;}
+    .btnPrimary:disabled{background:#93c5fd;cursor:not-allowed;}
+    .btnGhost{background:#eef2ff;color:#1e40af;}
+    .btnDanger{background:#fee2e2;color:#991b1b;}
+    .small{font-size:12px;color:var(--muted);line-height:1.4;}
+    .outcome{border:1px dashed var(--line);border-radius:10px;padding:10px;background:#ffffff;margin-top:10px;}
+    .outcome h3{margin:0 0 6px;font-size:13px;}
+    .outcome ul{margin:0;padding-left:18px;font-size:13px;line-height:1.4;}
+    .pill{display:inline-block;font-size:11px;font-weight:650;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;}
+    table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
+    th,td{border:1px solid var(--line);padding:8px;vertical-align:top;}
+    th{background:#f3f4f6;text-align:left;}
+    .hl{background:#fff7ed;}
+    .hidden{display:none;}
+    .footerNote{margin-top:10px;font-size:12px;color:var(--muted);}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Digital Deterrence Simulator: Can Software Substitute for Strategic Depth?</h1>
+  <p>
+    You are the national security duty team of a small, globally connected state with limited manpower and strategic depth.
+    Each turn you allocate scarce resources across AI-ISR, HUMINT, Alliances, and Conventional Readiness.
+    Your choices shape warning quality, resilience, deterrence posture, escalation risk, and reputation.
+  </p>
+</header>
+
+<main>
+  <section id="intro" class="card">
+    <div class="title">
+      <h2>How to play</h2>
+      <div class="meta">10–12 minutes</div>
+    </div>
+    <p class="small">
+      Each turn you have <span class="mono">100</span> budget points. Adjust sliders so the total equals 100, then click <b>Commit Allocation</b>.
+      After committing, you will see outcomes and proceed to the next turn. At the end, export your run as CSV.
+    </p>
+    <div class="actions">
+      <button class="btnPrimary" id="startBtn">Start</button>
+    </div>
+  </section>
+
+  <section id="sim" class="row hidden">
+    <div class="card">
+      <div class="title">
+        <h2 id="turnTitle">Turn</h2>
+        <div class="meta" id="turnMeta"></div>
+      </div>
+
+      <div class="eventBox" id="eventBox">
+        <div class="tag" id="eventTag">Scenario</div>
+        <p id="eventText"></p>
+      </div>
+
+      <div class="controls">
+        <div class="budget">
+          <div class="left">Budget remaining</div>
+          <div class="right"><span id="remain">0</span> / 100</div>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sliderTop">
+            <div class="name">AI-ISR</div>
+            <div class="desc">Sensors, fusion, automation, counter-UAS analytics</div>
+          </div>
+          <input type="range" min="0" max="100" value="25" id="ai" />
+          <div class="small">Allocation: <b><span id="aiVal">25</span></b></div>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sliderTop">
+            <div class="name">HUMINT / Local Networks</div>
+            <div class="desc">Sources, access, language, field presence</div>
+          </div>
+          <input type="range" min="0" max="100" value="25" id="hum" />
+          <div class="small">Allocation: <b><span id="humVal">25</span></b></div>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sliderTop">
+            <div class="name">Alliances / Liaison</div>
+            <div class="desc">Sharing, basing, joint warning, political cover</div>
+          </div>
+          <input type="range" min="0" max="100" value="25" id="ally" />
+          <div class="small">Allocation: <b><span id="allyVal">25</span></b></div>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sliderTop">
+            <div class="name">Conventional Readiness</div>
+            <div class="desc">Patrols, air defence readiness, manpower tempo</div>
+          </div>
+          <input type="range" min="0" max="100" value="25" id="conv" />
+          <div class="small">Allocation: <b><span id="convVal">25</span></b></div>
+        </div>
+
+        <div class="actions">
+          <button class="btnGhost" id="autoBalanceBtn" title="Auto-balance to 100">Auto-balance</button>
+          <button class="btnPrimary" id="commitBtn" disabled>Commit Allocation</button>
+          <button class="btnDanger" id="resetBtn" title="Reset to 25/25/25/25">Reset</button>
+        </div>
+
+        <div class="outcome hidden" id="outcomeBox">
+          <h3>Outcome this turn</h3>
+          <ul id="outcomeList"></ul>
+          <div class="actions">
+            <button class="btnPrimary" id="nextBtn">Next turn</button>
+          </div>
+        </div>
+
+        <div class="footerNote">
+          Instructor note: This is a stylised simulation designed to surface trade-offs, substitution limits, and second-order effects.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="title">
+        <h2>System status</h2>
+        <div class="meta"><span class="pill" id="modePill">Live</span></div>
+      </div>
+
+      <div class="kpiGrid">
+        <div class="kpi">
+          <div class="k">Deterrence posture</div>
+          <div class="v">
+            <div class="bar"><div class="fill" id="detFill"></div></div>
+            <div class="n" id="detN">50</div>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="k">Warning quality</div>
+          <div class="v">
+            <div class="bar"><div class="fill" id="warnFill"></div></div>
+            <div class="n" id="warnN">50</div>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="k">Resilience</div>
+          <div class="v">
+            <div class="bar"><div class="fill" id="resFill"></div></div>
+            <div class="n" id="resN">50</div>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="k">Escalation risk</div>
+          <div class="v">
+            <div class="bar"><div class="fill" id="escFill"></div></div>
+            <div class="n" id="escN">30</div>
+          </div>
+        </div>
+        <div class="kpi" style="grid-column:1 / -1;">
+          <div class="k">Reputation / legitimacy</div>
+          <div class="v">
+            <div class="bar"><div class="fill" id="repFill"></div></div>
+            <div class="n" id="repN">60</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="outcome" style="margin-top:12px;">
+        <h3>Interpretation cues</h3>
+        <ul>
+          <li><b>High AI-ISR</b> raises warning, but can create brittleness under deception and overload.</li>
+          <li><b>High HUMINT</b> improves intent attribution and reduces surprise, but is slow and costly.</li>
+          <li><b>High alliances</b> boosts strategic cover and sharing, but may constrain autonomy and invite blowback.</li>
+          <li><b>High conventional readiness</b> supports visible deterrence, but increases escalation and fiscal strain.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="summary" class="card hidden">
+    <div class="title">
+      <h2>Run summary</h2>
+      <div class="meta" id="finalMeta"></div>
+    </div>
+    <p class="small" id="finalText"></p>
+
+    <div class="actions">
+      <button class="btnPrimary" id="downloadBtn">Download CSV</button>
+      <button class="btnGhost" id="restartBtn">Restart</button>
+    </div>
+
+    <div id="tableWrap"></div>
+
+    <div class="outcome" style="margin-top:12px;">
+      <h3>Debrief prompts</h3>
+      <ul>
+        <li>Where did “software” clearly substitute for “steel,” and where did it fail?</li>
+        <li>Which investments reduced escalation risk without collapsing deterrence?</li>
+        <li>Did alliances function as capability, constraint, or both?</li>
+        <li>Which turn produced the most “strategic regret,” and why?</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script>
+  // ---------- Scenario design ----------
+  // Each turn defines: stressors, what works best, and what creates second-order costs.
+  const TURNS = [
+    {
+      id: 1,
+      tag: "Baseline posture",
+      text: "Routine day. Regional tensions are present but stable. Your challenge is to choose a sustainable posture that preserves readiness without provoking escalation.",
+      stress: { threat: 10, cyber: 10, ambiguity: 10, political: 10 }
+    },
+    {
+      id: 2,
+      tag: "Maritime ambiguity",
+      text: "Unmarked small craft cluster near an offshore energy asset. Signals are noisy; intent is unclear. A false alarm would be politically costly.",
+      stress: { threat: 25, cyber: 10, ambiguity: 30, political: 20 }
+    },
+    {
+      id: 3,
+      tag: "Drone harassment",
+      text: "Low-cost drones appear intermittently near a sensitive site. Attribution is uncertain. Public expects visible response, but escalation risks are real.",
+      stress: { threat: 35, cyber: 10, ambiguity: 20, political: 25 }
+    },
+    {
+      id: 4,
+      tag: "Cyber intrusion",
+      text: "A spearphishing wave targets government and energy firms. You suspect a state-linked actor. Operational disruption is limited, but confidence is high.",
+      stress: { threat: 15, cyber: 40, ambiguity: 15, political: 20 }
+    },
+    {
+      id: 5,
+      tag: "Disinformation burst",
+      text: "A coordinated online campaign claims your state is enabling foreign operations. The story is spreading internationally. Trust and reputation are at stake.",
+      stress: { threat: 10, cyber: 25, ambiguity: 20, political: 45 }
+    },
+    {
+      id: 6,
+      tag: "Alliance pressure",
+      text: "A major partner requests expanded access and data sharing in exchange for enhanced early warning. Domestic actors worry about sovereignty and dependency.",
+      stress: { threat: 20, cyber: 15, ambiguity: 15, political: 45 }
+    },
+    {
+      id: 7,
+      tag: "Deception and clutter",
+      text: "A pilgrimage / commercial surge floods maritime traffic. This is exactly when an adversary might hide a probe. Sensors are saturated; comms are intermittent.",
+      stress: { threat: 30, cyber: 15, ambiguity: 45, political: 20 }
+    },
+    {
+      id: 8,
+      tag: "Crisis peak",
+      text: "A multi-domain incident: drones, cyber probing, and ambiguous naval movement. You must deter without triggering a spiral. Investors are watching.",
+      stress: { threat: 45, cyber: 25, ambiguity: 30, political: 30 }
+    }
+  ];
+
+  // ---------- State ----------
+  let idx = 0;
+  let locked = false;
+
+  // System KPIs (0-100)
+  let kpi = {
+    det: 50, warn: 50, res: 50, esc: 30, rep: 60
+  };
+
+  const history = []; // per turn record
+
+  // ---------- DOM ----------
+  const intro = document.getElementById("intro");
+  const sim = document.getElementById("sim");
+  const summary = document.getElementById("summary");
+
+  const startBtn = document.getElementById("startBtn");
+  const turnTitle = document.getElementById("turnTitle");
+  const turnMeta = document.getElementById("turnMeta");
+  const eventTag = document.getElementById("eventTag");
+  const eventText = document.getElementById("eventText");
+
+  const ai = document.getElementById("ai");
+  const hum = document.getElementById("hum");
+  const ally = document.getElementById("ally");
+  const conv = document.getElementById("conv");
+
+  const aiVal = document.getElementById("aiVal");
+  const humVal = document.getElementById("humVal");
+  const allyVal = document.getElementById("allyVal");
+  const convVal = document.getElementById("convVal");
+
+  const remain = document.getElementById("remain");
+  const commitBtn = document.getElementById("commitBtn");
+  const autoBalanceBtn = document.getElementById("autoBalanceBtn");
+  const resetBtn = document.getElementById("resetBtn");
+
+  const outcomeBox = document.getElementById("outcomeBox");
+  const outcomeList = document.getElementById("outcomeList");
+  const nextBtn = document.getElementById("nextBtn");
+
+  const detFill = document.getElementById("detFill");
+  const warnFill = document.getElementById("warnFill");
+  const resFill = document.getElementById("resFill");
+  const escFill = document.getElementById("escFill");
+  const repFill = document.getElementById("repFill");
+
+  const detN = document.getElementById("detN");
+  const warnN = document.getElementById("warnN");
+  const resN = document.getElementById("resN");
+  const escN = document.getElementById("escN");
+  const repN = document.getElementById("repN");
+
+  const finalMeta = document.getElementById("finalMeta");
+  const finalText = document.getElementById("finalText");
+  const tableWrap = document.getElementById("tableWrap");
+  const downloadBtn = document.getElementById("downloadBtn");
+  const restartBtn = document.getElementById("restartBtn");
+  const modePill = document.getElementById("modePill");
+
+  // ---------- Helpers ----------
+  const clamp = (x, a=0, b=100) => Math.max(a, Math.min(b, x));
+  const sumAlloc = () => (+ai.value) + (+hum.value) + (+ally.value) + (+conv.value);
+
+  function colorFor(value, invert=false){
+    // returns a simple traffic-light color (no custom palette required by user, but basic is fine)
+    // invert=true means high is bad (escalation risk)
+    if(invert){
+      if(value < 35) return "#10b981";
+      if(value < 65) return "#f59e0b";
+      return "#dc2626";
+    }else{
+      if(value < 35) return "#dc2626";
+      if(value < 65) return "#f59e0b";
+      return "#10b981";
+    }
+  }
+
+  function renderKPI(){
+    const set = (fillEl, numEl, v, invert=false) => {
+      fillEl.style.width = `${v}%`;
+      fillEl.style.background = colorFor(v, invert);
+      numEl.textContent = v.toFixed(0);
+    };
+    set(detFill, detN, kpi.det);
+    set(warnFill, warnN, kpi.warn);
+    set(resFill, resN, kpi.res);
+    set(escFill, escN, kpi.esc, true);
+    set(repFill, repN, kpi.rep);
+  }
+
+  function renderSliders(){
+    aiVal.textContent = ai.value;
+    humVal.textContent = hum.value;
+    allyVal.textContent = ally.value;
+    convVal.textContent = conv.value;
+
+    const remaining = 100 - sumAlloc();
+    remain.textContent = remaining;
+
+    // Only allow commit if total == 100 and not locked
+    commitBtn.disabled = !(remaining === 0 && !locked);
+  }
+
+  function loadTurn(i){
+    locked = false;
+    outcomeBox.classList.add("hidden");
+    modePill.textContent = "Planning";
+
+    const t = TURNS[i];
+    turnTitle.textContent = `Turn ${t.id}: ${t.tag}`;
+    turnMeta.textContent = `Turn ${t.id} of ${TURNS.length}`;
+    eventTag.textContent = t.tag;
+    eventText.textContent = t.text;
+
+    renderSliders();
+    renderKPI();
+  }
+
+  function resetAlloc(){
+    ai.value = 25; hum.value = 25; ally.value = 25; conv.value = 25;
+    renderSliders();
+  }
+
+  function autoBalance(){
+    // Make total exactly 100 by adjusting Conventional Readiness last (simple, transparent rule)
+    const a = +ai.value, h = +hum.value, al = +ally.value;
+    let c = 100 - (a + h + al);
+    c = clamp(c, 0, 100);
+    conv.value = c;
+    renderSliders();
+  }
+
+  // Core evaluation function: stylised but coherent.
+  function evaluateTurn(turn, alloc){
+    // alloc in [0..100], sum = 100
+    const w = alloc.ai/100, h = alloc.hum/100, al = alloc.ally/100, c = alloc.conv/100;
+    const s = turn.stress;
+
+    // Base effectiveness profiles by stressor
+    // - AI good for cyber/traffic sensing, but brittle under high ambiguity/deception without HUMINT.
+    // - HUMINT best for ambiguity/intent.
+    // - Alliances provide warning + cover; too high can provoke domestic legitimacy costs.
+    // - Conventional increases deterrence but raises escalation and fiscal strain.
+    const warnGain =
+      (40*w) + (35*al) + (25*h)
+      - (20*(s.ambiguity/100) * (w - h > 0.15 ? (w - h) : 0)); // AI over HUMINT under ambiguity penalty
+
+    const detGain =
+      (45*c) + (20*w) + (20*al) + (15*h)
+      - (10*(s.political/100) * (c > 0.45 ? (c-0.45) : 0)); // visible militarisation under political stress
+
+    const resGain =
+      (30*h) + (25*al) + (20*w) + (25*(c<0.15?0.15:c)) // some baseline physical capacity needed
+      - (12*(s.cyber/100) * (w < 0.20 ? (0.20-w) : 0)); // underinvest in AI under cyber stress
+
+    const escDelta =
+      (28*c) + (12*w) + (10*al) - (18*h)
+      + (18*(s.threat/100) * (c > 0.35 ? (c-0.35) : 0)); // crisis militarisation escalates
+
+    const repDelta =
+      (22*al) + (18*h) + (10*w) - (12*c)
+      - (18*(s.political/100) * (al > 0.55 ? (al-0.55) : 0)); // perceived dependency / sovereignty talkback
+
+    // Convert to KPI changes with damping
+    // Stress reduces everything unless compensated.
+    const stressDrag = (s.threat + s.cyber + s.ambiguity + s.political)/400; // 0..1
+
+    const dDet = (detGain*0.35) - (12*stressDrag);
+    const dWarn = (warnGain*0.35) - (12*stressDrag);
+    const dRes  = (resGain*0.30) - (10*stressDrag);
+    const dEsc  = (escDelta*0.35) + (10*stressDrag);
+    const dRep  = (repDelta*0.30) - (10*stressDrag);
+
+    // Apply
+    kpi.det = clamp(kpi.det + dDet);
+    kpi.warn = clamp(kpi.warn + dWarn);
+    kpi.res = clamp(kpi.res + dRes);
+    kpi.esc = clamp(kpi.esc + dEsc);
+    kpi.rep = clamp(kpi.rep + dRep);
+
+    // Generate qualitative outcomes (few, readable bullets)
+    const bullets = [];
+
+    // Warning
+    if(dWarn > 4) bullets.push("Warning improved: you are more likely to detect probes early and reduce surprise.");
+    if(dWarn < -4) bullets.push("Warning degraded: higher chance of late detection and misclassification under clutter.");
+
+    // Deterrence and escalation
+    if(dDet > 4 && dEsc < 2) bullets.push("Deterrence strengthened without a major escalation spike: credible posture with restraint.");
+    if(dDet > 4 && dEsc > 6) bullets.push("Deterrence strengthened, but escalation risk rose sharply: signalling may be interpreted as preparation.");
+    if(dDet < -4) bullets.push("Deterrence weakened: adversaries may test boundaries with low-cost probes.");
+
+    // Resilience
+    if(dRes > 4) bullets.push("Resilience improved: you can absorb shocks and maintain continuity across domains.");
+    if(dRes < -4) bullets.push("Resilience weakened: the system is more fragile under disruption and fatigue.");
+
+    // Reputation
+    if(dRep > 3) bullets.push("Reputation/legitimacy improved: actions appear proportionate and internationally defensible.");
+    if(dRep < -3) bullets.push("Reputation costs increased: perceptions of overreaction or dependency gained traction.");
+
+    // Specific turn “teaching moments”
+    if(turn.id === 7){
+      if(w > 0.40 && h < 0.20) bullets.push("Deception penalty triggered: high sensing without local intent readout under saturated traffic.");
+      if(h >= 0.25) bullets.push("HUMINT mitigated deception: better ability to distinguish convoy noise from hostile masking.");
+    }
+    if(turn.id === 6){
+      if(al > 0.60) bullets.push("Alliance-dependency backlash: domestic sovereignty narratives reduce legitimacy benefits.");
+      if(al >= 0.35 && al <= 0.55) bullets.push("Balanced liaison investment: improved sharing without severe autonomy costs.");
+    }
+
+    if(bullets.length === 0) bullets.push("Mixed outcome: marginal changes; trade-offs largely cancelled each other out.");
+
+    return {
+      bullets,
+      delta: { dDet, dWarn, dRes, dEsc, dRep },
+      stress: s
+    };
+  }
+
+  function lockInputs(lock=true){
+    locked = lock;
+    [ai,hum,ally,conv].forEach(el => el.disabled = lock);
+    autoBalanceBtn.disabled = lock;
+    resetBtn.disabled = lock;
+    commitBtn.disabled = lock || (100 - sumAlloc() !== 0);
+  }
+
+  function commit(){
+    if(locked) return;
+    if(100 - sumAlloc() !== 0) return;
+
+    const turn = TURNS[idx];
+    const alloc = { ai:+ai.value, hum:+hum.value, ally:+ally.value, conv:+conv.value };
+    const result = evaluateTurn(turn, alloc);
+
+    // Record
+    history.push({
+      turn: turn.id,
+      tag: turn.tag,
+      event: turn.text,
+      ai: alloc.ai, hum: alloc.hum, ally: alloc.ally, conv: alloc.conv,
+      det: kpi.det.toFixed(0), warn: kpi.warn.toFixed(0), res: kpi.res.toFixed(0), esc: kpi.esc.toFixed(0), rep: kpi.rep.toFixed(0),
+      dDet: result.delta.dDet.toFixed(1), dWarn: result.delta.dWarn.toFixed(1), dRes: result.delta.dRes.toFixed(1), dEsc: result.delta.dEsc.toFixed(1), dRep: result.delta.dRep.toFixed(1)
+    });
+
+    // Show outcomes
+    outcomeList.innerHTML = "";
+    result.bullets.slice(0,5).forEach(b => {
+      const li = document.createElement("li"); li.textContent = b; outcomeList.appendChild(li);
+    });
+
+    renderKPI();
+    modePill.textContent = "Committed";
+    outcomeBox.classList.remove("hidden");
+    lockInputs(true);
+  }
+
+  function next(){
+    idx += 1;
+    if(idx >= TURNS.length){
+      endSim();
+      return;
+    }
+    lockInputs(false);
+    loadTurn(idx);
+  }
+
+  function endSim(){
+    sim.classList.add("hidden");
+    summary.classList.remove("hidden");
+
+    // Final assessment (simple heuristic)
+    const score = (kpi.det*0.22) + (kpi.warn*0.22) + (kpi.res*0.22) + (kpi.rep*0.22) + ((100-kpi.esc)*0.12);
+    let verdict = "Mixed posture: you achieved some capacity gains but paid meaningful costs in escalation, resilience, or legitimacy.";
+    if(score >= 72) verdict = "High-performing posture: you balanced software, human intelligence, and alliance leverage with manageable escalation.";
+    if(score <= 55) verdict = "Fragile posture: either deterrence, warning, or resilience fell behind the crisis tempo, increasing strategic vulnerability.";
+
+    finalMeta.textContent = `Final score (stylised): ${score.toFixed(0)} / 100`;
+    finalText.textContent = verdict;
+
+    // Table
+    let html = `<table><thead><tr>
+      <th>Turn</th><th>Allocation (AI/HUM/ALLY/CONV)</th>
+      <th>KPIs after turn (DET/WARN/RES/ESC/REP)</th><th>Δ (DET/WARN/RES/ESC/REP)</th>
+    </tr></thead><tbody>`;
+
+    history.forEach(r => {
+      const hl = (r.turn===6 || r.turn===7 || r.turn===8) ? " class='hl'" : "";
+      html += `<tr${hl}>
+        <td><b>${r.turn}</b><br><span class="small">${r.tag}</span></td>
+        <td>${r.ai}/${r.hum}/${r.ally}/${r.conv}</td>
+        <td>${r.det}/${r.warn}/${r.res}/${r.esc}/${r.rep}</td>
+        <td>${r.dDet}/${r.dWarn}/${r.dRes}/${r.dEsc}/${r.dRep}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    tableWrap.innerHTML = html;
+  }
+
+  function toCSV(){
+    const cols = [
+      "turn","tag","ai","hum","ally","conv",
+      "det","warn","res","esc","rep",
+      "dDet","dWarn","dRes","dEsc","dRep"
+    ];
+    const lines = [cols.join(",")];
+    history.forEach(r => {
+      const row = cols.map(c => String(r[c]).replace(/"/g,'""'));
+      lines.push(row.join(","));
+    });
+    return lines.join("\n");
+  }
+
+  function downloadCSV(){
+    const csv = toCSV();
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "digital_deterrence_run.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function restart(){
+    idx = 0;
+    locked = false;
+    history.length = 0;
+    kpi = { det:50, warn:50, res:50, esc:30, rep:60 };
+    resetAlloc();
+
+    summary.classList.add("hidden");
+    sim.classList.remove("hidden");
+    lockInputs(false);
+    loadTurn(0);
+  }
+
+  // ---------- Wiring ----------
+  startBtn.addEventListener("click", () => {
+    intro.classList.add("hidden");
+    sim.classList.remove("hidden");
+    resetAlloc();
+    loadTurn(0);
+  });
+
+  [ai,hum,ally,conv].forEach(el => el.addEventListener("input", renderSliders));
+  commitBtn.addEventListener("click", commit);
+  nextBtn.addEventListener("click", next);
+  autoBalanceBtn.addEventListener("click", autoBalance);
+  resetBtn.addEventListener("click", resetAlloc);
+
+  downloadBtn.addEventListener("click", downloadCSV);
+  restartBtn.addEventListener("click", () => {
+    summary.classList.add("hidden");
+    intro.classList.remove("hidden");
+  });
+
+  // initial render
+  renderKPI();
+  renderSliders();
+</script>
+</body>
+</html>
